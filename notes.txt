@@ -1,6 +1,8 @@
 Light Novel Translation Design
 
 Publisher
+  (Note: Depends on Chapter)
+  (Note: Uses R2 + DO Storage)
 	publish_story (title)
 		create & store story metadata 
 		store story metadata (chapter list)
@@ -15,6 +17,7 @@ Story
 	list_chapters ()
 		(titles, links, when_free)
 Chapter
+  (Note: Uses R2 + DO storage)
 	X is_free (now)
 		is the chapter free now?
 	X update
@@ -25,21 +28,24 @@ Chapter
   X text (version)
     return chapter text at a given version.
 User
+  (Note: Depends on Stripe integration and Chapter)
+  (Note: Uses DO storage)
 	X has_credits()
 		user.credits
 	X add_credits()
 		credits = payment_flow()
 		user.credits += credits
-	add_ownership(chapter)
+	X own(chapter)
 		user.owns(chapter)?
 		user.has_credits(chapter.cost())? payment_flow();
 		user.has_credits?
 		user.credits -= chapter.cost()
 		user.owns += chapter
-	has_access(now, chapter)
+	X owns(now, chapter)
 		user.owns(chapter)?
 		chapter.is_free(now)?
 		false
-  payment_flow()
+  X payment_flow()
+    (Note: mocked)
     contact stripe for payment flow
     return credits added to account
