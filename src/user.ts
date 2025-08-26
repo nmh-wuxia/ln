@@ -15,18 +15,18 @@ export class User {
   }
   owns(now: number, chapter: Chapter): boolean {
     if (chapter.is_free(now)) return true;
-    if (this.owned_stories.has(chapter.name)) return true;
+    if (this.owned_stories.has(chapter.title)) return true;
     return false;
   }
   own(now: number, chapter: Chapter): boolean {
     if (this.owns(now, chapter)) return true;
     if (this.credits >= chapter.cost) {
-      this.owned_stories.add(chapter.name);
+      this.owned_stories.add(chapter.title);
       this.credits -= chapter.cost;
       return true;
     }
     if (this.payment_flow()) {
-      this.owned_stories.add(chapter.name);
+      this.owned_stories.add(chapter.title);
       this.credits -= chapter.cost;
       return true;
     }
