@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { Chapter } from "~/chapter";
 import { User } from "~/user";
 
@@ -31,12 +31,24 @@ describe("User ownership", () => {
   test("can buy chapters it can afford", () => {
     let user = new User(new Set());
     user.add_credits(1);
+    const spy = vi.spyOn(user, "payment_flow");
     expect(user.own(0, active_chapter)).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(0);
+  });
+  test("can buy chapters with payment_flow when needed", () => {
+    let user = new User(new Set());
+    user.add_credits(1);
+    const spy = vi.spyOn(user, "payment_flow");
+    expect(user.own(0, expensive_chapter)).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
   test("can't buy chapters it can't afford", () => {
     let user = new User(new Set());
     user.add_credits(1);
+    const spy = vi.spyOn(user, "payment_flow");
+    spy.mockImplementation(() => false);
     expect(user.own(0, expensive_chapter)).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
   test("correctly verifies bought chapters", () => {
     let user = new User(new Set());

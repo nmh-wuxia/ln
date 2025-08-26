@@ -28,6 +28,7 @@ export class User {
     if (this.payment_flow()) {
       this.owned_stories.add(chapter.name);
       this.credits -= chapter.cost;
+      return true;
     }
     return false;
   }
