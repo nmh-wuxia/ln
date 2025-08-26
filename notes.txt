@@ -1,0 +1,45 @@
+Light Novel Translation Design
+
+Publisher
+	publish_story (title)
+		create & store story metadata 
+		store story metadata (chapter list)
+	publish_chapter (raw_chapter)
+		Store the raw chapter
+		Queue the chapter up for translation
+		Retrieve the translated chapter
+		Store the translated chapter
+		Render the translated chapter to html and store render.
+		Update the story metadata (chapter list) with new chapter (title, links to render)
+Story
+	list_chapters ()
+		(titles, links, when_free)
+Chapter
+	is_free (now)
+		is the chapter free now?
+	cost ()
+		cost of the chapter in credits
+	update
+		lock the chapter
+		store the new chapter text with an incremented version
+		re-render the new chapter text with an incremented version & store
+		unlock the chapter
+User
+	X has_credits()
+		user.credits
+	X add_credits()
+		credits = payment_flow()
+		user.credits += credits
+	add_ownership(chapter)
+		user.owns(chapter)?
+		user.has_credits(chapter.cost())? payment_flow();
+		user.has_credits?
+		user.credits -= chapter.cost()
+		user.owns += chapter
+	has_access(now, chapter)
+		user.owns(chapter)?
+		chapter.is_free(now)?
+		false
+  payment_flow()
+    contact stripe for payment flow
+    return credits added to account
