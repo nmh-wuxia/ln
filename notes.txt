@@ -1,11 +1,17 @@
 Light Novel Translation Design
 
+TODO: Fix compile errors
+
 Publisher
   (Note: Depends on Chapter)
   (Note: Uses R2 + DO Storage)
 	publish_story (title)
-		create & store story metadata 
-		store story metadata (chapter list)
+		X create & store story metadata 
+		X store story metadata (chapter list)
+  publish_chapter (english_chapter)
+		X Store the translated chapter
+		X Update the story metadata (chapter list) with new chapter (title, links to render)
+		Render the translated chapter to html and store render.
 	publish_chapter (raw_chapter)
 		Store the raw chapter
 		Queue the chapter up for translation

@@ -48,4 +48,14 @@ describe("Publisher", () => {
         .sort(),
     ).toStrictEqual(["story", "story 2"]);
   });
+  test("Can reload from encoded R2", () => {
+    let r2: Record<string, string> = {};
+    let publisher = new Publisher(r2);
+    publisher.publish_chapter("story", "chapter", 0, 0, "blah");
+    publisher.publish_chapter("story", "chapter 2", 0, 0, "blah");
+    publisher.publish_chapter("story 2", "chapter", 0, 0, "blah");
+    let publisher2 = Publisher.deserialize(r2, publisher.serialize());
+
+    expect(publisher.stories).toStrictEqual(publisher2.stories);
+  });
 });
