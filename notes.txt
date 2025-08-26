@@ -15,15 +15,15 @@ Story
 	list_chapters ()
 		(titles, links, when_free)
 Chapter
-	is_free (now)
+	X is_free (now)
 		is the chapter free now?
-	cost ()
-		cost of the chapter in credits
-	update
+	X update
 		lock the chapter
 		store the new chapter text with an incremented version
 		re-render the new chapter text with an incremented version & store
 		unlock the chapter
+  X text (version)
+    return chapter text at a given version.
 User
 	X has_credits()
 		user.credits
