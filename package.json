@@ -4,13 +4,43 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run typecheck && vitest --run --coverage",
+    "test:ci": "npm run typecheck && vitest --run"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "~/*": [
+        "src/*"
+      ],
+      "@/*": [
+        "src/*"
+      ]
+    },
+    "types": [
+      "vitest/globals"
+    ],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src",
+    "tests",
+    "vitest.config.ts"
+  ],
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "@types/node": "^24.3.0",
+    "@vitest/coverage-istanbul": "^3.2.4",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }
