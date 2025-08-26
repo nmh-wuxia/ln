@@ -1,7 +1,5 @@
 Light Novel Translation Design
 
-TODO: Fix compile errors
-
 Publisher
   (Note: Depends on Chapter)
   (Note: Uses R2 + DO Storage)
