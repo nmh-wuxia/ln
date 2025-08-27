@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { Chapter } from "~/chapter";
 import { MemoryR2Bucket } from "~/r2";
+import type { Patch } from "~/patch";
 
 describe("Chapter ", () => {
   test("contains nothing by default", async () => {
@@ -93,5 +94,18 @@ describe("Chapter ", () => {
     );
     await ch.update("new text");
     expect(await (await r2.get(ch.key(0)))?.text()).toBe("new text");
+  });
+  test("patch updates create conflict groups", () => {
+    const r2 = new MemoryR2Bucket();
+    const chapter = new Chapter(r2, "story", "chapter", 0, 0);
+    const a: Patch = { id: "a", start: 0, end: 2 };
+    const b: Patch = { id: "b", start: 1, end: 3 };
+    const c: Patch = { id: "c", start: 10, end: 12 };
+    chapter.update(a);
+    chapter.update(b);
+    chapter.update(c);
+    expect(chapter.patch_groups.length).toBe(2);
+    expect(chapter.patch_groups[0]!.patches.map((p) => p.id).sort()).toEqual(["a", "b"]);
+    expect(chapter.patch_groups[1]!.patches[0]!.id).toBe("c");
   });
 });
