@@ -1,15 +1,15 @@
 import { Chapter } from "~/chapter";
+import type { R2Bucket } from "~/r2";
 
 export class Publisher {
-  r2: Record<string, string>;
+  r2: R2Bucket;
   stories: Record<string, Record<string, Chapter>>;
 
-  constructor(r2: Record<string, string>) {
+  constructor(r2: R2Bucket) {
     this.r2 = r2;
     this.stories = {};
   }
-
-  update_story_map = (
+  update_story_map = async (
     story_title: string,
     chapter_title: string,
     when_free: number,
@@ -20,15 +20,15 @@ export class Publisher {
     const mapping: [string, number, number][] = Object.values(story).map(
       (chapter) => [chapter.title, chapter.when_free, chapter.version],
     );
-    this.r2[story_title] = JSON.stringify(mapping);
+    await this.r2.put(story_title, JSON.stringify(mapping));
   };
-  publish_chapter(
+  async publish_chapter(
     story_title: string,
     chapter_title: string,
     when_free: number,
     cost: number,
     text: string,
-  ): Chapter {
+  ): Promise<Chapter> {
     let story = this.stories[story_title] || {};
     const chapter = new Chapter(
       this.r2,
@@ -37,15 +37,14 @@ export class Publisher {
       when_free,
       cost,
       0,
-      "",
       this.update_story_map,
     );
     story[chapter_title] = chapter;
     this.stories[story_title] = story;
     if (text.length > 0) {
-      chapter.update(text);
+      await chapter.update(text);
     } else {
-      this.update_story_map(
+      await this.update_story_map(
         story_title,
         chapter_title,
         when_free,
@@ -55,26 +54,28 @@ export class Publisher {
     }
     return chapter;
   }
-  serialize(): string {
+  async serialize(): Promise<string> {
     let saved_state: Record<any, any> = {};
     for (const [story_title, story] of Object.entries(this.stories).filter(
-      ([k, v]) => !k.includes(":"),
+      ([k]) => !k.includes(":"),
     )) {
-      saved_state[story_title] = Object.values(story).map((chapter): any =>
-        JSON.parse(chapter.serialize()),
+      saved_state[story_title] = await Promise.all(
+        Object.values(story).map(async (chapter): Promise<any> =>
+          JSON.parse(await chapter.serialize()),
+        ),
       );
     }
     return JSON.stringify(saved_state);
   }
-  static deserialize(r2: Record<string, string>, str: string): Publisher {
+  static async deserialize(r2: R2Bucket, str: string): Promise<Publisher> {
     let publisher = new Publisher(r2);
     const saved_state: Record<any, any> = JSON.parse(str);
     for (const [story_title, story] of Object.entries(saved_state).filter(
-      ([k, v]) => !k.includes(":"),
+      ([k]) => !k.includes(":"),
     )) {
       publisher.stories[story_title] = {};
       for (const chapter of story as any[]) {
-        const ch = Chapter.deserialize(
+        const ch = await Chapter.deserialize(
           r2,
           JSON.stringify(chapter),
           publisher.update_story_map,
@@ -82,7 +83,7 @@ export class Publisher {
         publisher.stories[story_title][ch.chapter_title] = ch;
         const start = ch.last_synced_version;
         for (let v = start; v < ch.version; v++) {
-          publisher.update_story_map(
+          await publisher.update_story_map(
             story_title,
             ch.chapter_title,
             ch.when_free,
@@ -91,7 +92,7 @@ export class Publisher {
           ch.last_synced_version = v + 1;
         }
         if (start === ch.last_synced_version) {
-          publisher.update_story_map(
+          await publisher.update_story_map(
             story_title,
             ch.chapter_title,
             ch.when_free,

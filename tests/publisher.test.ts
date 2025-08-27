@@ -1,75 +1,91 @@
 import { describe, expect, test, vi } from "vitest";
 import { Chapter } from "~/chapter";
 import { Publisher } from "~/publisher";
+import { MemoryR2Bucket } from "~/r2";
 
 describe("Publisher", () => {
-  test("R2 is empty by construction", () => {
-    let r2: Record<string, string> = {};
+  test("R2 is empty by construction", async () => {
+    let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
-    expect(Object.keys(r2).length).toBe(0);
+    expect((await r2.list()).objects.length).toBe(0);
   });
-  test("R2 creates a key for a story", () => {
-    let r2: Record<string, string> = {};
+  test("R2 creates a key for a story", async () => {
+    let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
-    publisher.publish_chapter("story", "chapter", 0, 0, "blah");
+    await publisher.publish_chapter("story", "chapter", 0, 0, "blah");
 
-    expect(Object.keys(r2).filter((x) => !x.includes(":"))).toStrictEqual([
-      "story",
-    ]);
+    const keys = (await r2.list()).objects
+      .filter((x) => !x.key.includes(":"))
+      .map((x) => x.key);
+    expect(keys).toStrictEqual(["story"]);
   });
-  test("R2 handles story update", () => {
-    let r2: Record<string, string> = {};
+  test("R2 handles story update", async () => {
+    let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
-    const chapter = publisher.publish_chapter("story", "chapter", 0, 0, "blah");
+    const chapter = await publisher.publish_chapter(
+      "story",
+      "chapter",
+      0,
+      0,
+      "blah",
+    );
     expect(chapter.last_synced_version).toBe(1);
-    chapter.update("blah2");
+    await chapter.update("blah2");
     expect(chapter.last_synced_version).toBe(2);
 
-    expect(Object.keys(r2).filter((x) => !x.includes(":"))).toStrictEqual([
-      "story",
-    ]);
-    expect(Object.keys(r2).length).toBe(5);
-    expect(r2["story:chapter:0.html"]).toBe("<p>blah</p>\n");
-    expect(r2["story:chapter:1.html"]).toBe("<p>blah2</p>\n");
-    const mapping = JSON.parse(r2["story"]!);
+    const keys = (await r2.list()).objects.map((o) => o.key);
+    expect(keys.filter((x) => !x.includes(":"))).toStrictEqual(["story"]);
+    expect(keys.length).toBe(5);
+    expect(await (await r2.get("story:chapter:0.html"))?.text()).toBe(
+      "<p>blah</p>\n",
+    );
+    expect(await (await r2.get("story:chapter:1.html"))?.text()).toBe(
+      "<p>blah2</p>\n",
+    );
+    const mapping = JSON.parse(
+      await (await r2.get("story"))!.text(),
+    );
     expect(mapping).toStrictEqual([["story:chapter", 0, 2]]);
   });
-  test("R2 creates a key for a story with multiple chapters", () => {
-    let r2: Record<string, string> = {};
+  test("R2 creates a key for a story with multiple chapters", async () => {
+    let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
-    publisher.publish_chapter("story", "chapter", 0, 0, "blah");
-    publisher.publish_chapter("story", "chapter 2", 0, 0, "blah");
-    expect(Object.keys(r2).filter((x) => !x.includes(":"))).toStrictEqual([
-      "story",
-    ]);
-    const mapping = JSON.parse(r2["story"]!);
+    await publisher.publish_chapter("story", "chapter", 0, 0, "blah");
+    await publisher.publish_chapter("story", "chapter 2", 0, 0, "blah");
+    const keys = (await r2.list()).objects
+      .filter((x) => !x.key.includes(":"))
+      .map((x) => x.key);
+    expect(keys).toStrictEqual(["story"]);
+    const mapping = JSON.parse(
+      await (await r2.get("story"))!.text(),
+    );
     expect(mapping).toStrictEqual([
       ["story:chapter", 0, 1],
       ["story:chapter 2", 0, 1],
     ]);
   });
-  test("R2 creates a keys for two stories", () => {
-    let r2: Record<string, string> = {};
+  test("R2 creates a keys for two stories", async () => {
+    let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
-    publisher.publish_chapter("story", "chapter", 0, 0, "blah");
-    publisher.publish_chapter("story 2", "chapter", 0, 0, "blah");
-    expect(
-      Object.keys(r2)
-        .filter((x) => !x.includes(":"))
-        .sort(),
-    ).toStrictEqual(["story", "story 2"]);
-    const story1 = JSON.parse(r2["story"]!);
-    const story2 = JSON.parse(r2["story 2"]!);
+    await publisher.publish_chapter("story", "chapter", 0, 0, "blah");
+    await publisher.publish_chapter("story 2", "chapter", 0, 0, "blah");
+    const keys = (await r2.list()).objects
+      .filter((x) => !x.key.includes(":"))
+      .map((x) => x.key)
+      .sort();
+    expect(keys).toStrictEqual(["story", "story 2"]);
+    const story1 = JSON.parse(await (await r2.get("story"))!.text());
+    const story2 = JSON.parse(await (await r2.get("story 2"))!.text());
     expect(story1).toStrictEqual([["story:chapter", 0, 1]]);
     expect(story2).toStrictEqual([["story 2:chapter", 0, 1]]);
   });
-  test("Can reload from encoded R2", () => {
-    let r2: Record<string, string> = {};
+  test("Can reload from encoded R2", async () => {
+    let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
-    publisher.publish_chapter("story", "chapter", 0, 0, "blah");
-    publisher.publish_chapter("story", "chapter 2", 0, 0, "blah");
-    publisher.publish_chapter("story 2", "chapter", 0, 0, "blah");
-    let publisher2 = Publisher.deserialize(r2, publisher.serialize());
+    await publisher.publish_chapter("story", "chapter", 0, 0, "blah");
+    await publisher.publish_chapter("story", "chapter 2", 0, 0, "blah");
+    await publisher.publish_chapter("story 2", "chapter", 0, 0, "blah");
+    let publisher2 = await Publisher.deserialize(r2, await publisher.serialize());
 
     for (const [title, story] of Object.entries(publisher.stories)) {
       const story2 = publisher2.stories[title]!;
@@ -87,24 +103,30 @@ describe("Publisher", () => {
         expect(c.last_synced_version).toBe(c.version),
       );
     }
-    expect(JSON.parse(r2["story"]!)).toStrictEqual([
+    expect(JSON.parse(await (await r2.get("story"))!.text())).toStrictEqual([
       ["story:chapter", 0, 1],
       ["story:chapter 2", 0, 1],
     ]);
-    expect(JSON.parse(r2["story 2"]!)).toStrictEqual([
+    expect(JSON.parse(await (await r2.get("story 2"))!.text())).toStrictEqual([
       ["story 2:chapter", 0, 1],
     ]);
   });
-  test("deserialization syncs missing versions", () => {
-    let r2: Record<string, string> = {};
+  test("deserialization syncs missing versions", async () => {
+    let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
-    const chapter = publisher.publish_chapter("story", "chapter", 0, 0, "v1");
-    chapter.update("v2");
-    const saved = JSON.parse(publisher.serialize());
+    const chapter = await publisher.publish_chapter(
+      "story",
+      "chapter",
+      0,
+      0,
+      "v1",
+    );
+    await chapter.update("v2");
+    const saved = JSON.parse(await publisher.serialize());
     saved["story"][0].last_synced_version = 1;
-    let r2b: Record<string, string> = {};
-    const publisher2 = Publisher.deserialize(r2b, JSON.stringify(saved));
-    const mapping = JSON.parse(r2b["story"]!);
+    let r2b = new MemoryR2Bucket();
+    const publisher2 = await Publisher.deserialize(r2b, JSON.stringify(saved));
+    const mapping = JSON.parse(await (await r2b.get("story"))!.text());
     expect(mapping).toStrictEqual([["story:chapter", 0, 2]]);
     const ch2 = publisher2.stories["story"]!["chapter"]!;
     expect(ch2.last_synced_version).toBe(2);

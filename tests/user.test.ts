@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { Chapter } from "~/chapter";
 import { User } from "~/user";
+import { MemoryR2Bucket } from "~/r2";
 
 describe("User", () => {
   test("defaults to zero credits", () => {
@@ -15,7 +16,7 @@ describe("User", () => {
   });
 });
 describe("User ownership", () => {
-  let r2 = {};
+  let r2 = new MemoryR2Bucket();
   let expired_chapter = new Chapter(r2, "story", "expired", 0, 3);
   let active_chapter = new Chapter(r2, "story", "active", 9999999999, 1);
   let expensive_chapter = new Chapter(r2, "story", "expensive", 9999999999, 50);
