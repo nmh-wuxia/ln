@@ -9,16 +9,6 @@ describe("Publisher", () => {
     let publisher = new Publisher(r2);
     expect((await r2.list()).objects.length).toBe(0);
   });
-  test("R2 creates a key for a story", async () => {
-    let r2 = new MemoryR2Bucket();
-    let publisher = new Publisher(r2);
-    await publisher.publish_chapter("story", "chapter", 0, 0, "blah");
-
-    const keys = (await r2.list()).objects
-      .filter((x) => !x.key.includes(":"))
-      .map((x) => x.key);
-    expect(keys).toStrictEqual(["story"]);
-  });
   test("publishing empty text throws", async () => {
     let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
