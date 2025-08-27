@@ -17,9 +17,9 @@ describe("User", () => {
 });
 describe("User ownership", () => {
   let r2 = new MemoryR2Bucket();
-  let expired_chapter = new Chapter(r2, "story", "expired", 0, 3);
-  let active_chapter = new Chapter(r2, "story", "active", 9999999999, 1);
-  let expensive_chapter = new Chapter(r2, "story", "expensive", 9999999999, 50);
+  let expired_chapter = new Chapter(r2, "story", "expired", 0, 3, "t");
+  let active_chapter = new Chapter(r2, "story", "active", 9999999999, 1, "t");
+  let expensive_chapter = new Chapter(r2, "story", "expensive", 9999999999, 50, "t");
 
   test("owns expired chapters for free", () => {
     let user = new User(new Set());
