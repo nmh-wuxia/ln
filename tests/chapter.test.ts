@@ -15,10 +15,11 @@ describe("Chapter ", () => {
     expect(chapter.cost).toBe(200);
     expect(chapter.title).toBe("story:chapter");
     expect(chapter.last_synced_version).toBe(0);
-    chapter.update("text");
+    chapter.update("# text");
     expect(chapter.version).toBe(1);
     expect(chapter.last_synced_version).toBe(1);
-    expect(r2[chapter.key(0)]).toBe("text");
+    expect(r2[chapter.key(0)]).toBe("# text");
+    expect(r2[chapter.key(0) + ".html"]).toBe("<h1>text</h1>\n");
     expect(r2[chapter.key(1)]).toBeUndefined();
   });
   test("is_free math works", () => {
@@ -31,16 +32,19 @@ describe("Chapter ", () => {
   test("serialize stores separate story and chapter titles", () => {
     let r2: Record<string, string> = {};
     let chapter = new Chapter(r2, "story", "chapter", 0, 0);
-    chapter.update("text");
+    chapter.update("# text");
     const saved = JSON.parse(chapter.serialize());
     expect(saved.story_title).toBe("story");
     expect(saved.chapter_title).toBe("chapter");
     expect(saved).not.toHaveProperty("title");
-    expect(saved[saved.version]).toBe("text");
+    expect(saved[saved.version]).toBe("# text");
 
     const reloaded = Chapter.deserialize(r2, chapter.serialize());
     expect(reloaded.story_title).toBe("story");
     expect(reloaded.chapter_title).toBe("chapter");
-    expect(r2[reloaded.key(reloaded.version - 1)]).toBe("text");
+    expect(r2[reloaded.key(reloaded.version - 1)]).toBe("# text");
+    expect(r2[reloaded.key(reloaded.version - 1) + ".html"]).toBe(
+      "<h1>text</h1>\n",
+    );
   });
 });
