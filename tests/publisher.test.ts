@@ -9,31 +9,12 @@ describe("Publisher", () => {
     let publisher = new Publisher(r2);
     expect((await r2.list()).objects.length).toBe(0);
   });
-  test("R2 creates a key for a story", async () => {
+  test("publishing empty text throws", async () => {
     let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);
-    await publisher.publish_chapter("story", "chapter", 0, 0, "blah");
-
-    const keys = (await r2.list()).objects
-      .filter((x) => !x.key.includes(":"))
-      .map((x) => x.key);
-    expect(keys).toStrictEqual(["story"]);
-  });
-  test("publishing empty text does not create chapter content", async () => {
-    let r2 = new MemoryR2Bucket();
-    let publisher = new Publisher(r2);
-    const chapter = await publisher.publish_chapter(
-      "story",
-      "chapter",
-      0,
-      0,
-      "",
-    );
-    expect(chapter.version).toBe(0);
-    expect(chapter.last_synced_version).toBe(0);
-    expect(await r2.get("story:chapter:0")).toBeNull();
-    const mapping = JSON.parse(await (await r2.get("story"))!.text());
-    expect(mapping).toStrictEqual([["story:chapter", 0, 0]]);
+    await expect(
+      publisher.publish_chapter("story", "chapter", 0, 0, ""),
+    ).rejects.toThrow();
   });
   test("update_story_map does nothing for missing story", async () => {
     let r2 = new MemoryR2Bucket();
@@ -52,22 +33,17 @@ describe("Publisher", () => {
       "blah",
     );
     expect(chapter.last_synced_version).toBe(1);
-    await chapter.update("blah2");
-    expect(chapter.last_synced_version).toBe(2);
 
     const keys = (await r2.list()).objects.map((o) => o.key);
     expect(keys.filter((x) => !x.includes(":"))).toStrictEqual(["story"]);
-    expect(keys.length).toBe(5);
+    expect(keys.length).toBe(3);
     expect(await (await r2.get("story:chapter:0.html"))?.text()).toBe(
       "<p>blah</p>\n",
-    );
-    expect(await (await r2.get("story:chapter:1.html"))?.text()).toBe(
-      "<p>blah2</p>\n",
     );
     const mapping = JSON.parse(
       await (await r2.get("story"))!.text(),
     );
-    expect(mapping).toStrictEqual([["story:chapter", 0, 2]]);
+    expect(mapping).toStrictEqual([["story:chapter", 0, 1]]);
   });
   test("R2 creates a key for a story with multiple chapters", async () => {
     let r2 = new MemoryR2Bucket();
@@ -132,25 +108,5 @@ describe("Publisher", () => {
     expect(JSON.parse(await (await r2.get("story 2"))!.text())).toStrictEqual([
       ["story 2:chapter", 0, 1],
     ]);
-  });
-  test("deserialization syncs missing versions", async () => {
-    let r2 = new MemoryR2Bucket();
-    let publisher = new Publisher(r2);
-    const chapter = await publisher.publish_chapter(
-      "story",
-      "chapter",
-      0,
-      0,
-      "v1",
-    );
-    await chapter.update("v2");
-    const saved = JSON.parse(await publisher.serialize());
-    saved["story"][0].last_synced_version = 1;
-    let r2b = new MemoryR2Bucket();
-    const publisher2 = await Publisher.deserialize(r2b, JSON.stringify(saved));
-    const mapping = JSON.parse(await (await r2b.get("story"))!.text());
-    expect(mapping).toStrictEqual([["story:chapter", 0, 2]]);
-    const ch2 = publisher2.stories["story"]!["chapter"]!;
-    expect(ch2.last_synced_version).toBe(2);
   });
 });

@@ -36,22 +36,19 @@ export class Publisher {
       chapter_title,
       when_free,
       cost,
-      0,
+      text,
+      undefined,
       this.update_story_map,
     );
     story[chapter_title] = chapter;
     this.stories[story_title] = story;
-    if (text.length > 0) {
-      await chapter.update(text);
-    } else {
-      await this.update_story_map(
-        story_title,
-        chapter_title,
-        when_free,
-        chapter.version,
-      );
-      chapter.last_synced_version = chapter.version;
-    }
+    await this.update_story_map(
+      story_title,
+      chapter_title,
+      when_free,
+      chapter.version,
+    );
+    chapter.last_synced_version = chapter.version;
     return chapter;
   }
   async serialize(): Promise<string> {
