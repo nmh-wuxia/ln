@@ -1,5 +1,7 @@
 import { marked } from "marked";
 import type { R2Bucket } from "~/r2";
+import { PatchManager } from "~/patch";
+import type { Patch, PatchConflictGroup } from "~/patch";
 
 export class Chapter {
   r2: R2Bucket;
@@ -16,6 +18,7 @@ export class Chapter {
     version: number,
   ) => Promise<void>;
   last_synced_version: number;
+  patch_groups: PatchConflictGroup[];
 
   constructor(
     r2: R2Bucket,
@@ -31,6 +34,7 @@ export class Chapter {
       version: number,
     ) => Promise<void> = async () => {},
     last_synced_version: number = version,
+    patch_groups: PatchConflictGroup[] = [],
   ) {
     this.r2 = r2;
     this.story_title = story_title;
@@ -41,22 +45,35 @@ export class Chapter {
     this.version = version;
     this.update_story_map = update_story_map;
     this.last_synced_version = last_synced_version;
+    this.patch_groups = patch_groups;
   }
   is_free(now: number): boolean {
     return now >= this.when_free;
   }
-  async update(new_text: string) {
-    const key = `${this.title}:${this.version}`;
-    await this.r2.put(key, new_text);
-    await this.r2.put(`${key}.html`, marked.parse(new_text, { async: false }));
-    this.version += 1;
-    await this.update_story_map(
-      this.story_title,
-      this.chapter_title,
-      this.when_free,
-      this.version,
-    );
-    this.last_synced_version = this.version;
+  async update(patch_or_text: Patch | string) {
+    if (typeof patch_or_text === "string") {
+      const new_text = patch_or_text;
+      const key = `${this.title}:${this.version}`;
+      await this.r2.put(key, new_text);
+      await this.r2.put(
+        `${key}.html`,
+        marked.parse(new_text, { async: false }),
+      );
+      this.version += 1;
+      await this.update_story_map(
+        this.story_title,
+        this.chapter_title,
+        this.when_free,
+        this.version,
+      );
+      this.last_synced_version = this.version;
+    } else {
+      const patch = patch_or_text;
+      const pm = new PatchManager();
+      pm.groups = this.patch_groups;
+      pm.add(patch);
+      this.patch_groups = pm.groups;
+    }
   }
   key(version: number): string {
     return `${this.title}:${version}`;
@@ -69,6 +86,7 @@ export class Chapter {
       cost: this.cost,
       version: this.version,
       last_synced_version: this.last_synced_version,
+      patch_groups: this.patch_groups,
     };
     if (this.version === 0) return JSON.stringify(saved_state);
     for (let i = 0; i < this.version - 1; ++i) {
@@ -105,6 +123,7 @@ export class Chapter {
       saved_state.version,
       update_story_map,
       saved_state.last_synced_version ?? saved_state.version,
+      saved_state.patch_groups ?? [],
     );
     if (chapter.version === 0) return chapter;
     for (let i = 0; i < chapter.version - 1; ++i) {
