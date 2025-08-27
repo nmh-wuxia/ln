@@ -71,12 +71,16 @@ export class Chapter {
       last_synced_version: this.last_synced_version,
     };
     for (let i = 0; i < this.version; ++i) {
-      const obj = await this.r2.get(`${this.title}:${i}`);
-      saved_state[i] = obj ? await obj.text() : undefined;
+      const key = `${this.title}:${i}`;
+      const obj = await this.r2.get(key);
+      if (!obj) throw new Error(`missing text for ${key}`);
+      saved_state[i] = await obj.text();
     }
     if (this.version > 0) {
-      const obj = await this.r2.get(`${this.title}:${this.version - 1}`);
-      saved_state[this.version] = obj ? await obj.text() : undefined;
+      const key = `${this.title}:${this.version - 1}`;
+      const obj = await this.r2.get(key);
+      if (!obj) throw new Error(`missing text for ${key}`);
+      saved_state[this.version] = await obj.text();
     }
     return JSON.stringify(saved_state);
   }

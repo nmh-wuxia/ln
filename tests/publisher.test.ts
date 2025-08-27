@@ -19,6 +19,28 @@ describe("Publisher", () => {
       .map((x) => x.key);
     expect(keys).toStrictEqual(["story"]);
   });
+  test("publishing empty text does not create chapter content", async () => {
+    let r2 = new MemoryR2Bucket();
+    let publisher = new Publisher(r2);
+    const chapter = await publisher.publish_chapter(
+      "story",
+      "chapter",
+      0,
+      0,
+      "",
+    );
+    expect(chapter.version).toBe(0);
+    expect(chapter.last_synced_version).toBe(0);
+    expect(await r2.get("story:chapter:0")).toBeNull();
+    const mapping = JSON.parse(await (await r2.get("story"))!.text());
+    expect(mapping).toStrictEqual([["story:chapter", 0, 0]]);
+  });
+  test("update_story_map does nothing for missing story", async () => {
+    let r2 = new MemoryR2Bucket();
+    let publisher = new Publisher(r2);
+    await publisher.update_story_map("ghost", "ch", 0, 0);
+    expect((await r2.list()).objects.length).toBe(0);
+  });
   test("R2 handles story update", async () => {
     let r2 = new MemoryR2Bucket();
     let publisher = new Publisher(r2);

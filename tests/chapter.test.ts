@@ -54,4 +54,57 @@ describe("Chapter ", () => {
       )?.text(),
     ).toBe("<h1>text</h1>\n");
   });
+  test("serialize throws if text is missing", async () => {
+    let r2 = new MemoryR2Bucket();
+    let chapter = new Chapter(r2, "story", "chapter", 0, 0, 1);
+    await expect(chapter.serialize()).rejects.toThrowError(/missing text/);
+  });
+  test("serialize throws if latest text is missing", async () => {
+    class MissingLatestBucket extends MemoryR2Bucket {
+      count = 0;
+      async get(key: string) {
+        this.count++;
+        if (this.count === 2) return null;
+        return super.get(key);
+      }
+    }
+    let r2 = new MissingLatestBucket({ "story:chapter:0": "v0" });
+    let chapter = new Chapter(r2, "story", "chapter", 0, 0, 1);
+    await expect(chapter.serialize()).rejects.toThrowError(/missing text/);
+  });
+  test("serialize handles chapter with no updates", async () => {
+    let r2 = new MemoryR2Bucket();
+    let chapter = new Chapter(r2, "story", "chapter", 0, 0);
+    const saved = JSON.parse(await chapter.serialize());
+    expect(saved.version).toBe(0);
+    const reloaded = await Chapter.deserialize(r2, await chapter.serialize());
+    expect(reloaded.version).toBe(0);
+  });
+  test("deserialize defaults last_synced_version", async () => {
+    let r2 = new MemoryR2Bucket();
+    const saved = {
+      story_title: "s",
+      chapter_title: "c",
+      when_free: 0,
+      cost: 0,
+      version: 0,
+    };
+    const chapter = await Chapter.deserialize(r2, JSON.stringify(saved));
+    expect(chapter.last_synced_version).toBe(0);
+  });
+  test("default update_story_map runs after deserialization", async () => {
+    let r2 = new MemoryR2Bucket();
+    const ch = await Chapter.deserialize(
+      r2,
+      JSON.stringify({
+        story_title: "s",
+        chapter_title: "c",
+        when_free: 0,
+        cost: 0,
+        version: 0,
+      }),
+    );
+    await ch.update("new text");
+    expect(await (await r2.get(ch.key(0)))?.text()).toBe("new text");
+  });
 });
