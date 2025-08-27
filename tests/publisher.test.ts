@@ -28,7 +28,9 @@ describe("Publisher", () => {
     expect(Object.keys(r2).filter((x) => !x.includes(":"))).toStrictEqual([
       "story",
     ]);
-    expect(Object.keys(r2).length).toBe(3);
+    expect(Object.keys(r2).length).toBe(5);
+    expect(r2["story:chapter:0.html"]).toBe("<p>blah</p>\n");
+    expect(r2["story:chapter:1.html"]).toBe("<p>blah2</p>\n");
     const mapping = JSON.parse(r2["story"]!);
     expect(mapping).toStrictEqual([["story:chapter", 0, 2]]);
   });

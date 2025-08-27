@@ -1,3 +1,5 @@
+import { marked } from "marked";
+
 export class Chapter {
   r2: Record<string, string>;
   story_title: string;
@@ -46,7 +48,9 @@ export class Chapter {
     return now >= this.when_free;
   }
   update(new_text: string) {
-    this.r2[`${this.title}:${this.version}`] = new_text;
+    const key = `${this.title}:${this.version}`;
+    this.r2[key] = new_text;
+    this.r2[`${key}.html`] = marked.parse(new_text, { async: false });
     this.version += 1;
     this.update_story_map(
       this.story_title,
@@ -100,10 +104,17 @@ export class Chapter {
     );
     for (let i = 0; i < chapter.version; ++i) {
       r2[`${chapter.title}:${i}`] = saved_state[i];
+      r2[`${chapter.title}:${i}.html`] = marked.parse(saved_state[i], {
+        async: false,
+      });
     }
     const latest_text = saved_state[saved_state.version];
     if (latest_text !== undefined && chapter.version > 0) {
       r2[`${chapter.title}:${chapter.version - 1}`] = latest_text;
+      r2[`${chapter.title}:${chapter.version - 1}.html`] = marked.parse(
+        latest_text,
+        { async: false },
+      );
     }
     return chapter;
   }
