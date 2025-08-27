@@ -81,24 +81,13 @@ export class Publisher {
           publisher.update_story_map,
         );
         publisher.stories[story_title][ch.chapter_title] = ch;
-        const start = ch.last_synced_version;
-        for (let v = start; v < ch.version; v++) {
-          await publisher.update_story_map(
-            story_title,
-            ch.chapter_title,
-            ch.when_free,
-            v + 1,
-          );
-          ch.last_synced_version = v + 1;
-        }
-        if (start === ch.last_synced_version) {
-          await publisher.update_story_map(
-            story_title,
-            ch.chapter_title,
-            ch.when_free,
-            ch.version,
-          );
-        }
+        await publisher.update_story_map(
+          story_title,
+          ch.chapter_title,
+          ch.when_free,
+          ch.version,
+        );
+        ch.last_synced_version = ch.version;
       }
     }
     return publisher;
