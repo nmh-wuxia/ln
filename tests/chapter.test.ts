@@ -59,19 +59,6 @@ describe("Chapter ", () => {
     let chapter = new Chapter(r2, "story", "chapter", 0, 0, 1);
     await expect(chapter.serialize()).rejects.toThrowError(/missing text/);
   });
-  test("serialize throws if latest text is missing", async () => {
-    class MissingLatestBucket extends MemoryR2Bucket {
-      count = 0;
-      async get(key: string) {
-        this.count++;
-        if (this.count === 2) return null;
-        return super.get(key);
-      }
-    }
-    let r2 = new MissingLatestBucket({ "story:chapter:0": "v0" });
-    let chapter = new Chapter(r2, "story", "chapter", 0, 0, 1);
-    await expect(chapter.serialize()).rejects.toThrowError(/missing text/);
-  });
   test("serialize handles chapter with no updates", async () => {
     let r2 = new MemoryR2Bucket();
     let chapter = new Chapter(r2, "story", "chapter", 0, 0);

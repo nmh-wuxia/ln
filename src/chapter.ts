@@ -70,18 +70,19 @@ export class Chapter {
       version: this.version,
       last_synced_version: this.last_synced_version,
     };
-    for (let i = 0; i < this.version; ++i) {
-      const key = `${this.title}:${i}`;
+    if (this.version === 0) return JSON.stringify(saved_state);
+    for (let i = 0; i < this.version - 1; ++i) {
+      const key = this.key(i);
       const obj = await this.r2.get(key);
       if (!obj) throw new Error(`missing text for ${key}`);
       saved_state[i] = await obj.text();
     }
-    if (this.version > 0) {
-      const key = `${this.title}:${this.version - 1}`;
-      const obj = await this.r2.get(key);
-      if (!obj) throw new Error(`missing text for ${key}`);
-      saved_state[this.version] = await obj.text();
-    }
+    const key = this.key(this.version - 1);
+    const obj = await this.r2.get(key);
+    if (!obj) throw new Error(`missing text for ${key}`);
+    const text = await obj.text();
+    saved_state[this.version - 1] = text;
+    saved_state[this.version] = text;
     return JSON.stringify(saved_state);
   }
   static async deserialize(
@@ -105,22 +106,21 @@ export class Chapter {
       update_story_map,
       saved_state.last_synced_version ?? saved_state.version,
     );
-    for (let i = 0; i < chapter.version; ++i) {
+    if (chapter.version === 0) return chapter;
+    for (let i = 0; i < chapter.version - 1; ++i) {
       const text = saved_state[i];
-      await r2.put(`${chapter.title}:${i}`, text);
+      await r2.put(chapter.key(i), text);
       await r2.put(
-        `${chapter.title}:${i}.html`,
+        `${chapter.key(i)}.html`,
         marked.parse(text, { async: false }),
       );
     }
     const latest_text = saved_state[saved_state.version];
-    if (latest_text !== undefined && chapter.version > 0) {
-      await r2.put(`${chapter.title}:${chapter.version - 1}`, latest_text);
-      await r2.put(
-        `${chapter.title}:${chapter.version - 1}.html`,
-        marked.parse(latest_text, { async: false }),
-      );
-    }
+    await r2.put(chapter.key(chapter.version - 1), latest_text);
+    await r2.put(
+      `${chapter.key(chapter.version - 1)}.html`,
+      marked.parse(latest_text, { async: false }),
+    );
     return chapter;
   }
 }
