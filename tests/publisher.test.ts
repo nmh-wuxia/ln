@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { Chapter } from "~/chapter";
 import { Publisher } from "~/publisher";
 import { MemoryR2Bucket } from "~/r2";
+import type { Translator, ChapterTranslationInput, ChapterTranslationOutput } from "~/translator";
 
 describe("Publisher", () => {
   test("R2 is empty by construction", async () => {
@@ -76,6 +77,29 @@ describe("Publisher", () => {
     const story2 = JSON.parse(await (await r2.get("story 2"))!.text());
     expect(story1).toStrictEqual([["story:chapter", 0, 1]]);
     expect(story2).toStrictEqual([["story 2:chapter", 0, 1]]);
+  });
+  test("Publisher uses translator before creating chapter", async () => {
+    class SuffixTranslator implements Translator {
+      async translate(input: ChapterTranslationInput): Promise<ChapterTranslationOutput> {
+        return {
+          story_title: `${input.story_title}-en`,
+          chapter_title: `${input.chapter_title}-en`,
+          text: `${input.text}-en`,
+        };
+      }
+    }
+    let r2 = new MemoryR2Bucket();
+    let publisher = new Publisher(r2, new SuffixTranslator());
+    const chapter = await publisher.publish_chapter("故事", "章节", 0, 0, "内容");
+    expect(chapter.story_title).toBe("故事-en");
+    expect(chapter.chapter_title).toBe("章节-en");
+    // HTML of translated text exists
+    expect(await (await r2.get("故事-en:章节-en:0.html"))?.text()).toBe(
+      "<p>内容-en</p>\n",
+    );
+    // Story mapping uses translated story title and chapter title
+    const mapping = JSON.parse(await (await r2.get("故事-en"))!.text());
+    expect(mapping).toStrictEqual([["故事-en:章节-en", 0, 1]]);
   });
   test("Can reload from encoded R2", async () => {
     let r2 = new MemoryR2Bucket();

@@ -1,13 +1,17 @@
 import { Chapter } from "~/chapter";
 import type { R2Bucket } from "~/r2";
+import type { Translator } from "~/translator";
+import { MockTranslator } from "~/translator";
 
 export class Publisher {
   r2: R2Bucket;
   stories: Record<string, Record<string, Chapter>>;
+  translator: Translator;
 
-  constructor(r2: R2Bucket) {
+  constructor(r2: R2Bucket, translator: Translator = new MockTranslator()) {
     this.r2 = r2;
     this.stories = {};
+    this.translator = translator;
   }
   update_story_map = async (
     story_title: string,
@@ -29,22 +33,32 @@ export class Publisher {
     cost: number,
     text: string,
   ): Promise<Chapter> {
-    let story = this.stories[story_title] || {};
-    const chapter = new Chapter(
-      this.r2,
+    const translated = await this.translator.translate({
       story_title,
       chapter_title,
+      text,
+    });
+
+    const t_story_title = translated.story_title;
+    const t_chapter_title = translated.chapter_title;
+    const t_text = translated.text;
+
+    let story = this.stories[t_story_title] || {};
+    const chapter = new Chapter(
+      this.r2,
+      t_story_title,
+      t_chapter_title,
       when_free,
       cost,
-      text,
+      t_text,
       undefined,
       this.update_story_map,
     );
-    story[chapter_title] = chapter;
-    this.stories[story_title] = story;
+    story[t_chapter_title] = chapter;
+    this.stories[t_story_title] = story;
     await this.update_story_map(
-      story_title,
-      chapter_title,
+      t_story_title,
+      t_chapter_title,
       when_free,
       chapter.version,
     );
@@ -57,8 +71,9 @@ export class Publisher {
       ([k]) => !k.includes(":"),
     )) {
       saved_state[story_title] = await Promise.all(
-        Object.values(story).map(async (chapter): Promise<any> =>
-          JSON.parse(await chapter.serialize()),
+        Object.values(story).map(
+          async (chapter): Promise<any> =>
+            JSON.parse(await chapter.serialize()),
         ),
       );
     }
