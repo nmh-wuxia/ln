@@ -1,23 +1,16 @@
 import { Chapter } from "~/chapter";
 import type { R2Bucket } from "~/r2";
 import type { Translator } from "~/translator";
-import { MockTranslator, DeepSeekTranslator } from "~/translator";
 
 export class Publisher {
   r2: R2Bucket;
   stories: Record<string, Record<string, Chapter>>;
   translator: Translator;
 
-  constructor(r2: R2Bucket, translator?: Translator) {
+  constructor(r2: R2Bucket, translator: Translator) {
     this.r2 = r2;
     this.stories = {};
-    if (translator) {
-      this.translator = translator;
-    } else if (process.env.DEEPSEEK_API_KEY) {
-      this.translator = new DeepSeekTranslator();
-    } else {
-      this.translator = new MockTranslator();
-    }
+    this.translator = translator;
   }
   update_story_map = async (
     story_title: string,
@@ -85,8 +78,8 @@ export class Publisher {
     }
     return JSON.stringify(saved_state);
   }
-  static async deserialize(r2: R2Bucket, str: string): Promise<Publisher> {
-    let publisher = new Publisher(r2);
+  static async deserialize(r2: R2Bucket, str: string, translator: Translator): Promise<Publisher> {
+    let publisher = new Publisher(r2, translator);
     const saved_state: Record<any, any> = JSON.parse(str);
     for (const [story_title, story] of Object.entries(saved_state).filter(
       ([k]) => !k.includes(":"),

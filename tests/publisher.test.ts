@@ -7,19 +7,20 @@ import type {
   ChapterTranslationInput,
   ChapterTranslationOutput,
 } from "~/translator";
+import { MockTranslator } from "~/translator";
 
 describe("Publisher", () => {
   describe("mapping", () => {
     test("update_story_map does nothing for missing story", async () => {
       // No story has been published yet; update should be a no-op.
       const bucket = new MemoryR2Bucket();
-      const publisher = new Publisher(bucket);
+      const publisher = new Publisher(bucket, new MockTranslator());
       await publisher.update_story_map("ghost", "ch", 0, 0);
       expect((await bucket.list()).objects.length).toBe(0);
     });
     test("creates and updates story mappings across stories", async () => {
       const bucket = new MemoryR2Bucket();
-      const publisher = new Publisher(bucket);
+      const publisher = new Publisher(bucket, new MockTranslator());
 
       // First chapter in first story
       const ch1 = await publisher.publish_chapter(
@@ -96,13 +97,14 @@ describe("Publisher", () => {
     test("Can reload from encoded R2", async () => {
       // Serialize and reload should preserve chapters and story mappings.
       const bucket = new MemoryR2Bucket();
-      const publisher = new Publisher(bucket);
+      const publisher = new Publisher(bucket, new MockTranslator());
       await publisher.publish_chapter("story", "chapter", 0, 0, "blah");
       await publisher.publish_chapter("story", "chapter 2", 0, 0, "blah");
       await publisher.publish_chapter("story 2", "chapter", 0, 0, "blah");
       const publisher2 = await Publisher.deserialize(
         bucket,
         await publisher.serialize(),
+        new MockTranslator(),
       );
 
       for (const [title, story] of Object.entries(publisher.stories)) {

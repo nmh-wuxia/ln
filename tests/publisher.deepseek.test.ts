@@ -1,10 +1,11 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
 import { Publisher } from "~/publisher";
 import { MemoryR2Bucket } from "~/r2";
+import { DeepSeekTranslator } from "~/translator";
 
 const DUMMY_KEY = "test-deepseek-key";
 
-describe("Publisher + DeepSeekTranslator (auto-wiring)", () => {
+describe("Publisher + DeepSeekTranslator (explicit)", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
@@ -16,8 +17,7 @@ describe("Publisher + DeepSeekTranslator (auto-wiring)", () => {
     process.env = originalEnv;
   });
 
-  test("uses DeepSeek when DEEPSEEK_API_KEY is set", async () => {
-    process.env.DEEPSEEK_API_KEY = DUMMY_KEY;
+  test("uses DeepSeek translator when provided", async () => {
     const bucket = new MemoryR2Bucket();
 
     // Mock combined DeepSeek response: story, dashes, chapter, dashes, content
@@ -33,7 +33,7 @@ describe("Publisher + DeepSeekTranslator (auto-wiring)", () => {
       }),
     } as any);
 
-    const publisher = new Publisher(bucket);
+    const publisher = new Publisher(bucket, new DeepSeekTranslator({ apiKey: DUMMY_KEY }));
     const ch = await publisher.publish_chapter("故事", "章节", 0, 0, "内容");
     expect(ch.story_title).toBe("故事-en");
     expect(ch.chapter_title).toBe("章节-en");
