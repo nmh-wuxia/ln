@@ -40,6 +40,7 @@
     "vitest.config.ts"
   ],
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240821.0",
     "@types/node": "^24.3.0",
     "@vitest/coverage-istanbul": "^3.2.4",
     "typescript": "^5.9.2",

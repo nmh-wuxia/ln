@@ -1,0 +1,16 @@
+name = "lightnovel"
+main = "src/do/worker.ts"
+compatibility_date = "2024-08-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "CHAPTER_DO"
+class_name = "ChapterDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChapterDO"]
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "test-bucket"
