@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { MemoryR2Bucket } from "~/r2";
 
+// Light sanity check for in-memory R2 prefix filtering.
 describe("MemoryR2Bucket", () => {
   test("list filters by prefix", async () => {
     const r2 = new MemoryR2Bucket({

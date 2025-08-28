@@ -2,7 +2,8 @@ import { describe, expect, test } from "vitest";
 import { PatchManager } from "~/patch";
 
 describe("PatchManager", () => {
-  test("non overlapping patches create separate groups", () => {
+  test("handles non-overlap merging", () => {
+    // Non-overlapping ranges => distinct groups, create separate groups
     const pm = new PatchManager();
     pm.add({ id: "a", start: 0, end: 4 });
     pm.add({ id: "b", start: 10, end: 12 });
@@ -10,7 +11,8 @@ describe("PatchManager", () => {
     expect(pm.groups[0]!.patches.map((p) => p.id)).toEqual(["a"]);
     expect(pm.groups[1]!.patches.map((p) => p.id)).toEqual(["b"]);
   });
-  test("overlapping patches end up in the same group", () => {
+  test("handles overlap merging", () => {
+    // Overlapping ranges => single merged group with expanded bounds
     const pm = new PatchManager();
     pm.add({ id: "a", start: 0, end: 4 });
     pm.add({ id: "b", start: 3, end: 8 });
@@ -19,7 +21,8 @@ describe("PatchManager", () => {
     expect(pm.groups[0]!.end).toBe(8);
     expect(pm.groups[0]!.patches.map((p) => p.id).sort()).toEqual(["a", "b"]);
   });
-  test("bridge patch merges groups", () => {
+  test("handles and bridge merging", () => {
+    // Bridge range connects two groups => single merged group
     const pm = new PatchManager();
     pm.add({ id: "a", start: 0, end: 2 });
     pm.add({ id: "b", start: 10, end: 12 });
@@ -27,7 +30,11 @@ describe("PatchManager", () => {
     expect(pm.groups.length).toBe(1);
     expect(pm.groups[0]!.start).toBe(0);
     expect(pm.groups[0]!.end).toBe(12);
-    expect(pm.groups[0]!.patches.map((p) => p.id).sort()).toEqual(["a", "b", "c"]);
+    expect(pm.groups[0]!.patches.map((p) => p.id).sort()).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
   });
   test("insertion patches overlap when inside range", () => {
     const pm = new PatchManager();
