@@ -1,17 +1,23 @@
 import { Chapter } from "~/chapter";
 import type { R2Bucket } from "~/r2";
 import type { Translator } from "~/translator";
-import { MockTranslator } from "~/translator";
+import { MockTranslator, DeepSeekTranslator } from "~/translator";
 
 export class Publisher {
   r2: R2Bucket;
   stories: Record<string, Record<string, Chapter>>;
   translator: Translator;
 
-  constructor(r2: R2Bucket, translator: Translator = new MockTranslator()) {
+  constructor(r2: R2Bucket, translator?: Translator) {
     this.r2 = r2;
     this.stories = {};
-    this.translator = translator;
+    if (translator) {
+      this.translator = translator;
+    } else if (process.env.DEEPSEEK_API_KEY) {
+      this.translator = new DeepSeekTranslator();
+    } else {
+      this.translator = new MockTranslator();
+    }
   }
   update_story_map = async (
     story_title: string,
