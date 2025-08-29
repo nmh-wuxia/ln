@@ -41,12 +41,14 @@
   ],
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240821.0",
+    "@types/diff-match-patch": "^1.0.36",
     "@types/node": "^24.3.0",
     "@vitest/coverage-istanbul": "^3.2.4",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "diff-match-patch": "^1.0.5",
     "marked": "^16.2.0"
   }
 }

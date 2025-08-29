@@ -8,7 +8,7 @@ export interface Env {
   BUCKET: CfR2Bucket;
 }
 
-type ChapterMethod = "init" | "serialize" | "meta" | "patch" | "text" | "html";
+type ChapterMethod = "init" | "serialize" | "meta" | "add_patch" | "apply_patch" | "text" | "html";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -39,7 +39,8 @@ export default {
       init(input: any): Promise<any>;
       serialize(): Promise<any>;
       meta(): Promise<any>;
-      patch(patch: any): Promise<any>;
+      add_patch(patch: any): Promise<any>;
+      apply_patch(params: any): Promise<any>;
       text(params?: any): Promise<any>;
       html(params?: any): Promise<any>;
     };
@@ -56,8 +57,11 @@ export default {
         case "meta":
           result = await stub.meta();
           break;
-        case "patch":
-          result = await stub.patch(params);
+        case "add_patch":
+          result = await stub.add_patch(params);
+          break;
+        case "apply_patch":
+          result = await stub.apply_patch(params);
           break;
         case "text":
           result = await stub.text(params);

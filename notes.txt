@@ -1,4 +1,29 @@
 Light Novel Translation Design
+TODO:
+  Add voting for patches, and accept patches based on votes.
+  Basic:
+    Approval + Wilson lower bound
+
+    Compute for each candidate: upvotes u, total n. Convert to a lower
+    confidence bound on true approval rate using the Wilson score interval (take
+    the lower 95% bound). Accept the candidate whose lower bound is highest and
+    exceeds a threshold (e.g., 0.6) and “Keep original” by a margin
+    (e.g., ≥0.05), with a minimum effective sample size. This resists early
+    brigades and tiny samples.
+  ----
+  Translation Prompts:
+    ChatGPT has suggested the following pipeline for translations (rather than
+    the one-shot I've used)
+
+    Summarization -> Rolling window -> Cleanup
+
+    So far it has suggested using small models for summarization and cleanup.
+
+    I also haven't checked ChatGPT's performance on the rolling window vs DeepSeek.
+
+    If I can get good performance from small or mini models on this task, that
+    would lower my costs considerably.
+  
 
 Publisher
   (Note: Depends on Chapter)
@@ -53,3 +78,20 @@ User
     (Note: mocked)
     contact stripe for payment flow
     return credits added to account
+
+export ENDPOINT='https://lightnovel.nmhancocfin.workers.dev/rpc/chapter'
+curl -X POST "$ENDPOINT" -H 'content-type: application/json' -d '{ "name": "story:chapter", "method": "init", "params": { "story_title": "story", "chapter_title": "chapter", "when_free": 0, "cost": 0, "text": "Hello" } }'
+
+curl -X POST "$ENDPOINT" -H 'content-type: application/json' -d '{ "name": "story:chapter", "method": "text" }'
+
+PATCH=$(node --input-type=module -e "import DMP from 'diff-match-patch'; const d=new DMP();    console.log(d.patch_toText(d.patch_make('Hello','Hello world!')))")                             
+
+RESP=$(curl -s -X POST "$ENDPOINT" -H 'content-type: application/json' -d "$(jq -n --arg p "$PATCH" '{ name:"story:chapter", method:"add_patch", params:{ start:5, end:5, patch: $p } }')")
+
+ID=$(echo "$RESP" | jq -r .id) 
+curl -X POST "$ENDPOINT" -H 'content-type: application/json' -d "$(jq -n --arg id "$ID" '{ name:"story:chapter", method:"apply_patch", params:{ id:$id } }')" 
+
+{"ok":true,"version":4}%                                                                               
+curl -X POST "$ENDPOINT" -H 'content-type: application/json' -d '{ "name": "story:chapter", "method": "text" }'
+
+{"result":"Hello world!"}%

@@ -33,7 +33,7 @@ RPC Routing
 - The Worker entry `src/do/worker.ts` exposes a single endpoint using DO RPC:
   - `POST /rpc/chapter` with JSON body `{ name, method, params }`.
   - `name` is the Durable Object name, typically `story:chapter` (URL-encode if needed when your client constructs the URL, but name is passed inside JSON here).
-  - `method` is one of: `init | serialize | meta | patch | text | html`.
+  - `method` is one of: `init | serialize | meta | add_patch | apply_patch | text | html`.
   - `params` matches the method signature (see below).
 
 Example Requests (cURL)
@@ -69,15 +69,22 @@ Example Requests (cURL)
     -d '{ "name": "story:chapter", "method": "serialize" }'
   ```
 
-- Apply a patch:
+- Add and apply a patch:
   ```sh
+  # Generate patch text with diff-match-patch (Node one-liner)
+  # This example transforms "Hello" -> "Hello world"
+  PATCH=$(node --input-type=module -e "import DMP from 'diff-match-patch'; const d=new DMP(); console.log(d.patch_toText(d.patch_make('Hello','Hello world')))" )
+
+  # Add the patch; capture the assigned id
+  RESP=$(curl -s -X POST http://127.0.0.1:8787/rpc/chapter \
+    -H 'content-type: application/json' \
+    -d "$(jq -n --arg p "$PATCH" '{ name:"story:chapter", method:"add_patch", params:{ start:5, end:5, patch:$p } }')")
+  ID=$(echo "$RESP" | jq -r .id)
+
+  # Apply the patch by id
   curl -X POST http://127.0.0.1:8787/rpc/chapter \
     -H 'content-type: application/json' \
-    -d '{
-          "name": "story:chapter",
-          "method": "patch",
-          "params": { "id": "p1", "start": 0, "end": 5 }
-        }'
+    -d "$(jq -n --arg id "$ID" '{ name:"story:chapter", method:"apply_patch", params:{ id:$id } }')"
   ```
 
 - Fetch text or HTML for a version (defaults to latest when omitted):
@@ -99,7 +106,11 @@ Durable Object Methods
 - `serialize()` -> `string | { error }`
   - Serialized chapter JSON (includes versioned text history).
 - `meta()` -> `{ story_title, chapter_title, title, when_free, cost, version, last_synced_version, patch_groups } | { error }`
-- `patch({ id, start, end })` -> `{ ok, patch_groups } | { error }`
+- Note: `patch_groups` in responses redact the raw patch text to avoid control characters in JSON outputs; only `{ id, start, end }` are included per patch.
+- `add_patch({ start, end, patch })` -> `{ id, patch_groups } | { error }`
+  - Validates patch text and inserts it into conflict groups, returning an assigned id.
+- `apply_patch({ id })` -> `{ ok, version } | { error }`
+  - Applies the referenced patch to the latest content; if content changes, writes a new version to R2 and updates metadata.
 - `text({ version? })` -> `string | { error }`
 - `html({ version? })` -> `string | { error }`
 

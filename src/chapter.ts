@@ -1,7 +1,7 @@
 import { marked } from "marked";
 import type { R2Bucket } from "~/r2";
 import { PatchManager } from "~/patch";
-import type { Patch, PatchConflictGroup } from "~/patch";
+import type { Patch, PatchConflictGroup, PatchInput } from "~/patch";
 
 export class Chapter {
   r2: R2Bucket;
@@ -55,11 +55,40 @@ export class Chapter {
   is_free(now: number): boolean {
     return now >= this.when_free;
   }
-  async update(patch: Patch) {
+  async add_patch(input: PatchInput): Promise<string> {
     const pm = new PatchManager();
     pm.groups = this.patch_groups;
-    pm.add(patch);
+    const id = pm.add(input);
     this.patch_groups = pm.groups;
+    return id;
+  }
+
+  async apply_patch(id: string): Promise<void> {
+    const latestIndex = this.version - 1;
+    if (latestIndex < 0) throw new Error("invalid state: no content");
+    const obj = await this.r2.get(this.key(latestIndex));
+    if (!obj) throw new Error(`missing text for ${this.key(latestIndex)}`);
+    const curr = await obj.text();
+    const pm = new PatchManager();
+    pm.groups = this.patch_groups;
+    const next = pm.applyById(curr, id);
+    this.patch_groups = pm.groups;
+    if (next !== curr) {
+      const newIndex = this.version;
+      this.version += 1;
+      await this.r2.put(this.key(newIndex), next);
+      await this.r2.put(
+        `${this.key(newIndex)}.html`,
+        marked.parse(next, { async: false }),
+      );
+      await this.update_story_map(
+        this.story_title,
+        this.chapter_title,
+        this.when_free,
+        this.version,
+      );
+      this.last_synced_version = this.version;
+    }
   }
 
   key(version: number): string {

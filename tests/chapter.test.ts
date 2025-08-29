@@ -3,6 +3,7 @@ import { Chapter } from "~/chapter";
 import { MemoryR2Bucket } from "~/r2";
 import type { R2Bucket } from "~/r2";
 import type { Patch } from "~/patch";
+import DiffMatchPatch from "diff-match-patch";
 
 describe("Chapter", () => {
   describe("validation", () => {
@@ -116,21 +117,75 @@ describe("Chapter", () => {
   });
   // is_free behavior is exercised via user ownership tests.
   describe("patching", () => {
-    test("patch updates create conflict groups", () => {
+    test("patch updates create conflict groups", async () => {
       const bucket = new MemoryR2Bucket();
       const chapter = new Chapter(bucket, "story", "chapter", 0, 0, "t");
-      const a: Patch = { id: "a", start: 0, end: 2 };
-      const b: Patch = { id: "b", start: 1, end: 3 };
-      const c: Patch = { id: "c", start: 10, end: 12 };
-      chapter.update(a);
-      chapter.update(b);
-      chapter.update(c);
+      // Use no-op textual patches so content is unchanged while grouping is tested
+      await chapter.add_patch({ start: 0, end: 2, patch: "" });
+      await chapter.add_patch({ start: 1, end: 3, patch: "" });
+      await chapter.add_patch({ start: 10, end: 12, patch: "" });
       expect(chapter.patch_groups.length).toBe(2);
-      expect(chapter.patch_groups[0]!.patches.map((p) => p.id).sort()).toEqual([
-        "a",
-        "b",
-      ]);
-      expect(chapter.patch_groups[1]!.patches[0]!.id).toBe("c");
+      expect(chapter.patch_groups[0]!.patches.length).toBe(2);
+      expect(chapter.patch_groups[1]!.patches.length).toBe(1);
+    });
+    test("patch apply changes content and version", async () => {
+      const bucket = new MemoryR2Bucket();
+      const chapter = new Chapter(bucket, "s", "c", 0, 0, "Hello");
+      const dmp = new DiffMatchPatch();
+      const patchText = dmp.patch_toText(dmp.patch_make("Hello", "Hello world"));
+      const id = await chapter.add_patch({ start: 5, end: 5, patch: patchText });
+      await chapter.apply_patch(id);
+      expect(chapter.version).toBe(2);
+      expect(await (await bucket.get(chapter.key(1)))?.text()).toBe(
+        "Hello world",
+      );
+      expect(
+        await (await bucket.get(chapter.key(1) + ".html"))?.text(),
+      ).toContain("Hello world");
+    });
+
+    test("add_patch returns id and stores in groups", async () => {
+      const bucket = new MemoryR2Bucket();
+      const chapter = new Chapter(bucket, "s", "c", 0, 0, "Text");
+      const id = await chapter.add_patch({ start: 0, end: 0, patch: "" });
+      // Find the id inside groups
+      const found = chapter.patch_groups.some((g) => g.patches.some((p) => p.id === id));
+      expect(found).toBe(true);
+    });
+
+    test("apply_patch unknown id throws", async () => {
+      const bucket = new MemoryR2Bucket();
+      const chapter = new Chapter(bucket, "s", "c", 0, 0, "Text");
+      await expect(chapter.apply_patch("missing"))
+        .rejects.toThrow(/patch id not found|not found/);
+    });
+
+    test("apply_patch no-op does not bump version", async () => {
+      const bucket = new MemoryR2Bucket();
+      const chapter = new Chapter(bucket, "s", "c", 0, 0, "Hello");
+      const dmp = new DiffMatchPatch();
+      // No change patch
+      const patchText = dmp.patch_toText(dmp.patch_make("Hello", "Hello"));
+      const id = await chapter.add_patch({ start: 0, end: 0, patch: patchText });
+      await chapter.apply_patch(id);
+      expect(chapter.version).toBe(1);
+      expect(await (await bucket.get(chapter.key(0)))?.text()).toBe("Hello");
+    });
+
+    test("apply_patch removes only conflicting group in Chapter", async () => {
+      const bucket = new MemoryR2Bucket();
+      const chapter = new Chapter(bucket, "s", "c", 0, 0, "Hello");
+      const dmp = new DiffMatchPatch();
+      const patchText = dmp.patch_toText(dmp.patch_make("Hello", "Hello world"));
+      const aId = await chapter.add_patch({ start: 5, end: 5, patch: patchText });
+      // Conflicting patch (same group)
+      await chapter.add_patch({ start: 4, end: 6, patch: "" });
+      // Non-conflicting patch (separate group)
+      const cId = await chapter.add_patch({ start: 20, end: 21, patch: "" });
+      await chapter.apply_patch(aId);
+      // Conflicting group removed; only non-conflicting remains
+      expect(chapter.patch_groups.length).toBe(1);
+      expect(chapter.patch_groups[0]!.patches.map((p) => p.id)).toEqual([cId]);
     });
   });
 });

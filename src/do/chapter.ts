@@ -3,7 +3,7 @@ import type { DurableObjectState, R2Bucket } from "@cloudflare/workers-types";
 import { DurableObject } from "cloudflare:workers";
 import { marked } from "marked";
 import { PatchManager } from "~/patch";
-import type { Patch, PatchConflictGroup } from "~/patch";
+import type { PatchConflictGroup } from "~/patch";
 
 // Durable Object storage uses SQLite via `this.state.storage.sql`.
 // We store metadata in a single-row table; content remains in R2.
@@ -234,29 +234,66 @@ export class ChapterDO extends DurableObject {
       cost: this.cost,
       version: this.version,
       last_synced_version: this.last_synced_version,
-      patch_groups: this.patch_groups,
+      patch_groups: this.sanitizePatchGroups(),
     };
   }
 
   // Client facing
   // apply a patch to modify chapter text.
-  async patch(
-    patch: Patch,
-  ): Promise<{ ok: true; patch_groups: any } | { error: string }> {
+  async add_patch(input: {
+    start: number;
+    end: number;
+    patch: string;
+  }): Promise<{ id: string; patch_groups: any } | { error: string }> {
     if (!this.title) return { error: "not found" };
     if (
-      !patch ||
-      typeof patch.start !== "number" ||
-      typeof patch.end !== "number"
+      !input ||
+      typeof input.start !== "number" ||
+      typeof input.end !== "number" ||
+      typeof input.patch !== "string"
     ) {
       return { error: "invalid patch" };
     }
     const pm = new PatchManager();
     pm.groups = this.patch_groups;
-    pm.add(patch);
+    let id: string;
+    try {
+      id = pm.add({ start: input.start, end: input.end, patch: input.patch });
+    } catch {
+      return { error: "invalid patch text" };
+    }
     this.patch_groups = pm.groups;
     await this.save();
-    return { ok: true, patch_groups: this.patch_groups };
+    return { id, patch_groups: this.sanitizePatchGroups() };
+  }
+
+  async apply_patch(input: {
+    id: string;
+  }): Promise<{ ok: true; version: number } | { error: string }> {
+    if (!this.title) return { error: "not found" };
+    if (!input?.id) return { error: "missing id" };
+    if (this.version <= 0) return { error: "invalid state: no content" };
+    const latestIndex = this.version - 1;
+    const obj = await this.env.BUCKET.get(this.key(latestIndex));
+    if (!obj) return { error: "server error: missing content" };
+    const curr = await obj.text();
+    const pm = new PatchManager();
+    pm.groups = this.patch_groups;
+    let next: string;
+    try {
+      next = pm.applyById(curr, input.id);
+    } catch (e: any) {
+      return { error: String(e?.message ?? e) };
+    }
+    this.patch_groups = pm.groups;
+    if (next !== curr) {
+      const newIndex = this.version;
+      this.version += 1;
+      await this.renderAndPut(newIndex, next);
+      this.last_synced_version = this.version;
+      await this.save();
+    }
+    return { ok: true, version: this.version };
   }
 
   // DEBUG
@@ -287,5 +324,13 @@ export class ChapterDO extends DurableObject {
     const obj = await this.env.BUCKET.get(`${this.key(version)}.html`);
     if (!obj) return { error: "server error: missing content" };
     return obj.text();
+  }
+  private sanitizePatchGroups() {
+    // Redact patch text from responses to avoid control characters in JSON output
+    return this.patch_groups.map((g) => ({
+      start: g.start,
+      end: g.end,
+      patches: g.patches.map((p) => ({ id: p.id, start: p.start, end: p.end })),
+    }));
   }
 }
