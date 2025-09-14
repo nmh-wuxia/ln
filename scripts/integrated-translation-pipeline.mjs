@@ -34,14 +34,16 @@ async function main() {
   const summarizePromptPath = process.argv[3];
   const translatePromptPath = process.argv[4];
   const smoothPromptPath = process.argv[5];
+  const seedPromptPath = process.argv[6];
   if (
     !inputPath ||
+    !seedPromptPath ||
     !summarizePromptPath ||
     !translatePromptPath ||
     !smoothPromptPath
   ) {
     console.error(
-      "Usage: node scripts/summarize.mjs <raw_text.json> <summarize_pr.json> <translate_pr.json> <smooth_pr.json>",
+      "Usage: node scripts/summarize.mjs <raw_text.json> <summarize_pr.json> <translate_pr.json> <smooth_pr.json> <seed_pr.json>",
     );
     process.exit(1);
   }
@@ -54,11 +56,16 @@ async function main() {
   const translatePrompt = JSON.parse(translateRaw);
   const smoothRaw = await fs.readFile(smoothPromptPath, "utf8");
   const smoothPrompt = JSON.parse(smoothRaw);
+  const seedRaw = await fs.readFile(seedPromptPath, "utf8");
+  const seedPrompt = JSON.parse(seedRaw);
 
+  /* Start Summarize */
   config = configs.DEEPSEEK;
   apiKey = process.env[config.env_var];
   let messages = summarizePrompt;
   messages[1].content.text_cn = data.text;
+  messages[1].content.seed_glossary = seedPrompt;
+  fs.writeFile("summaryPrompt.json", JSON.stringify(messages, null, 2));
   messages[1].content = JSON.stringify(messages[1].content);
   let body = {
     model: config.model,
@@ -86,8 +93,10 @@ async function main() {
     console.log("Summary parse failed");
     fs.writeFile("failed.json", summary_result);
   }
+  /* End Summarize */
   console.log("Done with summarize");
 
+  /* Start translate */
   config = configs.DEEPSEEK;
   apiKey = process.env[config.env_var];
   let responses = [];
@@ -131,6 +140,7 @@ async function main() {
         segment: segments[i].segment,
       };
       let body_messages = structuredClone(messages);
+      fs.writeFile("translatePrompt.json", JSON.stringify(messages, null, 2));
       body_messages[1].content = JSON.stringify(messages[1].content);
       body = {
         model: config.model,
@@ -163,8 +173,10 @@ async function main() {
     fs.writeFile("responses.json", JSON.stringify(responses, null, 2));
     console.log("Translate failed: ", e);
   }
+  /* End Translate*/
   console.log("Done with translate");
 
+  /* Start smoothing */
   config = configs.CHATGPT_MINI;
   apiKey = process.env[config.env_var];
   messages = smoothPrompt;
@@ -176,6 +188,7 @@ async function main() {
   console.log("num responses: ", responses.length);
   console.log("example response: ", responses[0]);
   messages[1].content.segs = responses;
+  fs.writeFile("smoothingPrompt.json", JSON.stringify(messages, null, 2));
   messages[1].content = JSON.stringify(messages[1].content);
   body = {
     model: config.model,
@@ -194,15 +207,14 @@ async function main() {
     const text = await res.text().catch(() => "");
     throw new Error(`API error (${res.status}): ${text}`);
   }
-  const test = await res.json();
-  console.log("test: ", test);
-  const result = test.choices[0].message.content;
+  const result = (await res.json()).choices[0].message.content;
   try {
     fs.writeFile("output.json", JSON.stringify(JSON.parse(result), null, 2));
   } catch (e) {
     fs.writeFile("output.json", JSON.stringify(result, null, 2));
     console.log("Smooth parse failed");
   }
+  /* End Smoothing */
   console.log("Done with smooth");
 }
 
