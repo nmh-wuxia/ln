@@ -9,7 +9,10 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["tests/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "tests/**/*.{test,spec}.{ts,tsx}",
+      "cf-tests/**/*.{test,spec}.{ts,tsx}",
+    ],
     coverage: {
       provider: "istanbul",
       include: ["src/**/*.{js,ts,jsx,tsx}"],
