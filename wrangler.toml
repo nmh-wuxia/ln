@@ -7,6 +7,10 @@ workers_dev = true
 name = "CHAPTER_DO"
 class_name = "ChapterDO"
 
+[[durable_objects.bindings]]
+name = "LLM"
+class_name = "OpenAIProviderDO"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ChapterDO"]
