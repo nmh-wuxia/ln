@@ -66,6 +66,42 @@ abstract class BaseProviderDO extends DurableObject {
     return this.maxPerMinute;
   }
 
+  // Minimal fetch handler to invoke translate() via HTTP-style RPC.
+  // This lets tests call stub.fetch without triggering unhandled errors
+  // that the workerd runtime would otherwise log to stderr.
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== "POST") {
+      return new Response("method not allowed", { status: 405 });
+    }
+    let params: any;
+    try {
+      params = await request.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "invalid json" }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    try {
+      const result = await this.translate(params);
+      return new Response(JSON.stringify({ result }), {
+        headers: { "content-type": "application/json" },
+      });
+    } catch (err: any) {
+      const status = typeof err?.code === "number" ? err.code : 500;
+      const body: Record<string, unknown> = {
+        error: String(err?.message ?? err),
+      };
+      if (err?.retry_after !== undefined) {
+        body.retry_after = err.retry_after;
+      }
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { "content-type": "application/json" },
+      });
+    }
+  }
+
   async translate(params: TranslateParams): Promise<string> {
     // Per-call client auth (if clientKey configured)
     if (params.api_key !== this.providerAuth) {
