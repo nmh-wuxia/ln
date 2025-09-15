@@ -45,7 +45,8 @@
     "@types/node": "^24.3.0",
     "@vitest/coverage-istanbul": "^3.2.4",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@cloudflare/vitest-pool-workers": "^0.9.1"
   },
   "dependencies": {
     "diff-match-patch": "^1.0.5",

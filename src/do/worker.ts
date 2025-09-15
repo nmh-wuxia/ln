@@ -2,6 +2,7 @@
 
 import type { DurableObjectNamespace, R2Bucket as CfR2Bucket } from "@cloudflare/workers-types";
 import { ChapterDO } from "./chapter";
+import { OpenAIProviderDO } from "./llm-provider";
 
 export interface Env {
   CHAPTER_DO: DurableObjectNamespace;
@@ -89,4 +90,4 @@ export default {
 };
 
 // Re-export for Wrangler class binding
-export { ChapterDO };
+export { ChapterDO, OpenAIProviderDO };
