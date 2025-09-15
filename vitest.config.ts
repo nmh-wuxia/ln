@@ -6,10 +6,16 @@ export default defineConfig({
     alias: {
       "~": fileURLToPath(new URL("./src", import.meta.url)),
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "cloudflare:workers": fileURLToPath(
+        new URL("./cf-tests/stubs/cloudflare-workers.ts", import.meta.url),
+      ),
     },
   },
   test: {
-    include: ["tests/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "tests/**/*.{test,spec}.{ts,tsx}",
+      "cf-tests/**/*.{test,spec}.{ts,tsx}",
+    ],
     coverage: {
       provider: "istanbul",
       include: ["src/**/*.{js,ts,jsx,tsx}"],
