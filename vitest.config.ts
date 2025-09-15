@@ -6,6 +6,9 @@ export default defineConfig({
     alias: {
       "~": fileURLToPath(new URL("./src", import.meta.url)),
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "cloudflare:workers": fileURLToPath(
+        new URL("./cf-tests/stubs/cloudflare-workers.ts", import.meta.url),
+      ),
     },
   },
   test: {
